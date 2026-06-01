@@ -93,6 +93,7 @@ stop_old_service() {
 
 create_script() {
     local report_interval=${1:-60}
+    local ping_type=${2:-http}
     step "注入工业级监控采集探针..."
 
     cat > "${SCRIPT_FILE}" << 'PROBE_EOF'
@@ -104,6 +105,7 @@ SERVER_ID="${1:-}"
 SECRET="${2:-}"
 WORKER_URL="${3:-}"
 REPORT_INTERVAL="${4:-60}"
+PING_TYPE="${5:-PING_TYPE_PLACEHOLDER}"
 
 # 严苛环境下的规范 JSON 字段转义函数
 escape_json() {
@@ -168,6 +170,17 @@ get_tcp_ping() {
     }'
 }
 
+get_ping() {
+    local host="$1"
+    local port="${2:-443}"
+    
+    if [ "${PING_TYPE}" = "tcp" ]; then
+        get_tcp_ping "$host" "$port"
+    else
+        get_http_ping "$host"
+    fi
+}
+
 # 静态测试节点定义
 CT_NODES=("bj-ct-dualstack.ip.zstaticcdn.com" "sh-ct-dualstack.ip.zstaticcdn.com" "gd-ct-dualstack.ip.zstaticcdn.com")
 CU_NODES=("bj-cu-dualstack.ip.zstaticcdn.com" "sh-cu-dualstack.ip.zstaticcdn.com" "gd-cu-dualstack.ip.zstaticcdn.com")
@@ -195,10 +208,10 @@ run_network_worker() {
         # 30秒检测一次网络延迟
         if [ $((now - last_ping)) -ge 30 ] || [ "$last_ping" -eq 0 ]; then
             local rand_idx=$((RANDOM % 3))
-            get_tcp_ping "${CT_NODES[$rand_idx]}" > /dev/shm/.cf_ping_ct.tmp && mv /dev/shm/.cf_ping_ct.tmp /dev/shm/.cf_ping_ct || true
-            get_tcp_ping "${CU_NODES[$rand_idx]}" > /dev/shm/.cf_ping_cu.tmp && mv /dev/shm/.cf_ping_cu.tmp /dev/shm/.cf_ping_cu || true
-            get_tcp_ping "${CM_NODES[$rand_idx]}" > /dev/shm/.cf_ping_cm.tmp && mv /dev/shm/.cf_ping_cm.tmp /dev/shm/.cf_ping_cm || true
-            get_tcp_ping "lf3-ips.zstaticcdn.com" > /dev/shm/.cf_ping_bd.tmp && mv /dev/shm/.cf_ping_bd.tmp /dev/shm/.cf_ping_bd || true
+            get_ping "${CT_NODES[$rand_idx]}" > /dev/shm/.cf_ping_ct.tmp && mv /dev/shm/.cf_ping_ct.tmp /dev/shm/.cf_ping_ct || true
+            get_ping "${CU_NODES[$rand_idx]}" > /dev/shm/.cf_ping_cu.tmp && mv /dev/shm/.cf_ping_cu.tmp /dev/shm/.cf_ping_cu || true
+            get_ping "${CM_NODES[$rand_idx]}" > /dev/shm/.cf_ping_cm.tmp && mv /dev/shm/.cf_ping_cm.tmp /dev/shm/.cf_ping_cm || true
+            get_ping "lf3-ips.zstaticcdn.com" > /dev/shm/.cf_ping_bd.tmp && mv /dev/shm/.cf_ping_bd.tmp /dev/shm/.cf_ping_bd || true
             last_ping="$now"
         fi
         sleep 5
@@ -349,6 +362,8 @@ EOF
 done
 PROBE_EOF
 
+    sed -i "s/PING_TYPE_PLACEHOLDER/${ping_type}/g" "${SCRIPT_FILE}"
+
     chmod +x "${SCRIPT_FILE}"
     info "探针脚本注入完成: ${SCRIPT_FILE}"
 }
@@ -359,6 +374,7 @@ create_service() {
     local esc_id; esc_id=$(printf '%s' "$SERVER_ID" | sed 's/\\/\\\\/g; s/"/\\"/g')
     local esc_sec; esc_sec=$(printf '%s' "$SECRET" | sed 's/\\/\\\\/g; s/"/\\"/g')
     local esc_url; esc_url=$(printf '%s' "$WORKER_URL" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    local esc_ping; esc_ping=$(printf '%s' "$PING_TYPE" | sed 's/\\/\\\\/g; s/"/\\"/g')
     
     # 完全剔除 MemoryHigh/MemoryMax/CPUQuota 等低版本 Systemd 会抛错的非泛用特性
     # 仅使用全版本 Linux 完美兼容的 Nice 权重调配及 IO 闲置调度
@@ -370,7 +386,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash "${SCRIPT_FILE}" "${esc_id}" "${esc_sec}" "${esc_url}" "${REPORT_INTERVAL}"
+ExecStart=/bin/bash "${SCRIPT_FILE}" "${esc_id}" "${esc_sec}" "${esc_url}" "${REPORT_INTERVAL}" "${esc_ping}"
 Restart=always
 RestartSec=5
 User=root
@@ -411,11 +427,13 @@ install_probe() {
     SECRET=${2:-""}
     WORKER_URL=${3:-""}
     REPORT_INTERVAL=${4:-60}
+    PING_TYPE=${5:-http}
 
     if [ -z "$SERVER_ID" ] || [ -z "$SECRET" ] || [ -z "$WORKER_URL" ]; then
         echo -e "${RED}错误: 运行所需的入参不完整。${NC}\n"
         echo "用法:"
-        echo "  bash $0 install <SERVER_ID> <SECRET> <WORKER_URL> [REPORT_INTERVAL]"
+        echo "  bash $0 install <SERVER_ID> <SECRET> <WORKER_URL> [REPORT_INTERVAL] [PING_TYPE]"
+        echo "  PING_TYPE: http (默认) | tcp"
         exit 1
     fi
 
@@ -424,7 +442,7 @@ install_probe() {
     detect_os
     install_deps
     stop_old_service
-    create_script "$REPORT_INTERVAL"
+    create_script "$REPORT_INTERVAL" "$PING_TYPE"
     create_service
     start_service
 

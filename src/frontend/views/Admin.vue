@@ -574,7 +574,7 @@ const addServer = async () => {
 
 const getInstallCommand = (serverId) => {
   const HOST = API_BASE
-  return `curl -sL ${HOST}/install.sh | bash -s install ${serverId} ${apiSecret.value} ${HOST}/update 60`
+  return `curl -sL ${HOST}/install.sh | bash -s install ${serverId} ${apiSecret.value} ${HOST}/update 60 http`
 }
 
 const getUninstallCommand = () => {
