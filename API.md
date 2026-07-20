@@ -207,7 +207,8 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 - Headers：
   ```
   Content-Type: application/json
-  X-Agent-Config-Schema: 1
+  X-Agent-Version: <探针版本号>
+  X-Agent-Config-Schema: 2
   X-Agent-Config-Md5: <最后成功应用的配置 MD5，首次为 none>
   ```
   动态配置请求头为新版探针使用的可选字段；未携带时保持旧版响应协议。
@@ -312,7 +313,7 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 
 **Response**
 
-- 旧版探针（未携带 `X-Agent-Config-Schema: 1`）：返回 `200 OK`：
+- 旧版探针（未携带 `X-Agent-Config-Schema: 2`）：返回 `200 OK`：
   ```
   OK
   ```
@@ -321,7 +322,7 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 - 新版探针且配置 MD5 不一致：返回 `200 OK`，响应头携带新的
   `X-Agent-Config-Md5`，响应体为按字段名排序的完整 QueryParam 配置：
   ```text
-  collect_interval=0&ping_mode=http&report_interval=60&reset_day=1&schema_version=1
+  collect_interval=0&report_interval=60&reset_day=1&schema_version=2
   ```
   （`Content-Type: application/x-www-form-urlencoded; charset=utf-8`）
 - 动态配置的字段范围、规范化及客户端校验规则详见 [AGENT_CONFIG.md](./AGENT_CONFIG.md)。
@@ -360,20 +361,35 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 
 ```json
 {
+  "version": "V2.7.11 Beta",
   "turnstile_enabled": true,
   "turnstile_site_key": "1x00000000000000000000AA",
   "verified": false,
   "turnstile_verified": "BASE64_AES_GCM_ENCRYPTED_STRING_OR_NULL",
+  "last_workers_version": "V2.7.11 Beta",
+  "last_agent_version": "1.3.0",
+  "csp_static": "https://unpkg.com,https://cdn.jsdelivr.net",
+  "csp_api": "https://api.example.com",
+  "theme_options": {
+    "a": 1,
+    "b": 2
+  },
   "show_long_history": true
 }
 ```
 
 | 字段                   | 类型           | 说明                                     |
 | -------------------- | ------------ | -------------------------------------- |
+| `version`            | string       | 当前部署自身 Workers 版本                         |
 | `turnstile_enabled`  | boolean      | 站点是否启用人机验证                             |
 | `turnstile_site_key` | string       | Turnstile 前端公钥；前端拿到后渲染 widget          |
 | `verified`           | boolean      | 当前请求是否携带了有效的 `X-Turnstile-Verified`    |
 | `turnstile_verified` | string\|null | 当次验证成功后回写给客户端的"已验证凭证"，客户端应回存并在 1 小时内复用 |
+| `last_workers_version` | string\|null | 登录时返回远程最新 Workers 版本；来源为 GitHub `version.json`，后端缓存 5 分钟 |
+| `last_agent_version` | string\|null | 登录时返回远程最新 Agent 版本；来源为 GitHub `version.json`，后端缓存 5 分钟 |
+| `csp_static`         | string       | 静态资源 CSP 白名单；匿名请求也会返回 |
+| `csp_api`            | string       | API CSP 白名单；匿名请求也会返回 |
+| `theme_options`      | object       | 第三方主题自定义配置；未配置时为空对象，匿名请求也会返回 |
 | `show_long_history`  | boolean      | 是否允许查看超过 1 小时的历史曲线（未登录用户**强制** 1 小时上限） |
 
 > `X-Turnstile-Token` 携带且验证成功时，响应头会同步设置 `X-Turnstile-Verified`（加密串）。
@@ -445,7 +461,6 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
   "reset_day": 1,
   "collect_interval": 1,
   "report_interval": 60,
-  "ping_mode": "http",
   "is_hidden": "0",
   "sort_order": 0,
   "cpu": 12.34,
@@ -883,6 +898,12 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
     "custom_bg": "https://...",
     "custom_head": "<style>...</style>",
     "custom_script": "console.log('hi');",
+    "appearance_options": {
+      "theme_options": {
+        "a": 1,
+        "b": 2
+      }
+    },
     "is_public": "true",
     "show_price": "true",
     "show_expire": "true",
@@ -910,7 +931,7 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
 
 **字段分类**：
 
-- `APPEARANCE_FIELDS`（写入 `appearance_options` JSON）：`site_title`、`custom_bg`、`custom_head`、`custom_script`
+- `APPEARANCE_FIELDS`（写入 `appearance_options` JSON）：`site_title`、`custom_bg`、`custom_head`、`custom_script`、`csp_static`、`csp_api`、`display_mode`、`theme_options`
 - `SITE_FIELDS`（写入 `site_options` JSON）：上表除 appearance 之外的全部
 - 任何未列出的字段会被忽略
 
@@ -971,7 +992,6 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
   "reset_day": 1,                     // 1 ~ 31
   "collect_interval": 1,              // 秒
   "report_interval": 60,              // 秒
-  "ping_mode": "http",                // http | tcp
   "is_hidden": "0"                    // "0" | "1"
 }
 ```
@@ -1137,7 +1157,6 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
 | `reset_day`                                   | number             | 流量重置日 1\~31               |
 | `collect_interval`                            | number             | 采集间隔（秒）                   |
 | `report_interval`                             | number             | 上报间隔（秒）                   |
-| `ping_mode`                                   | string             | `http` / `tcp`            |
 | `is_hidden`                                   | string `"0"`/`"1"` | 是否在前台隐藏                   |
 | `sort_order`                                  | number             | 排序值（越小越靠前）                |
 | `cpu`                                         | number             | 最新 CPU%（来自最新指标）           |
@@ -1162,6 +1181,7 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
 | `gpu_info`                                    | string             | GPU 型号                    |
 | `arch`                                        | string             | 架构                        |
 | `os`                                          | string             | OS 名称                     |
+| `agent_version`                               | string             | 最新一次上报的探针版本号              |
 | `region`                                      | string             | 区域代码（大写，兼容 ISO 国家码）       |
 | `ip_v4`                                       | string `"0"`/`"1"` | IPv4 可达性                  |
 | `ip_v6`                                       | string `"0"`/`"1"` | IPv6 可达性                  |
@@ -1191,6 +1211,8 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
   custom_bg: string,
   custom_head: string,           // 注入到 </head> 之前
   custom_script: string,         // 注入到 </body> 之前
+  display_mode: 'bar' | 'ring' | 'table',
+  theme_options: Record<string, unknown>,
   is_public: 'true' | 'false',
   show_price: 'true' | 'false',
   show_expire: 'true' | 'false',
@@ -1207,10 +1229,10 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
   password: string,              // PBKDF2 哈希值；旧版 MD5 哈希会在成功登录后自动升级
   cloudflare_account_id: string,
   cloudflare_token: string,
-  custom_ct: string,             // 电信测速节点域名
-  custom_cu: string,             // 联通
-  custom_cm: string,             // 移动
-  custom_bd: string,             // BGP
+  custom_ct: string,             // 电信测速节点 host[:port]
+  custom_cu: string,             // 联通 host[:port]
+  custom_cm: string,             // 移动 host[:port]
+  custom_bd: string,             // BGP host[:port]
   expire_reminder: 'true' | 'false'
 }
 ```

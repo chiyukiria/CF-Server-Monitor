@@ -1,10 +1,10 @@
 # [CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor)
 
-一个基于 Cloudflare Workers + D1 + Durable Objects 的多服务器监控探针系统，支持实时监控、历史数据查看、延迟追踪、地图展示等功能。兼容主流 Linux 系统、Alpine Linux、OpenWrt、macOS（Intel / Apple Silicon）、Windows 系统。
+一个基于 Cloudflare Workers + D1 + Durable Objects 的多服务器监控探针系统，支持实时监控、历史数据查看、延迟追踪、地图展示等功能。兼容主流 Linux 系统、Alpine Linux、OpenWrt、macOS（Intel / Apple Silicon）、群晖、Windows 系统。
 
 **演示地址**：<https://demo.huilang.me/>
 
-**当前版本：V2.7.10**
+**当前Workers版本：V2.7.13 Beta; Agent版本：1.3.1**（见 [`version.json`](./version.json)）
 
 > [!IMPORTANT]
 > V2.7.10 加入了 CSP 内容安全策略。默认只允许同源资源和必要的 Cloudflare/Google Fonts 资源；
@@ -24,6 +24,9 @@
 <details>
 <summary>更新记录</summary>
 
+- V2.7.13 Beta 新增显示模式选择功能，添加环形图模式
+- V2.7.12 新增Agent自动更新功能，默认关闭，谨慎开启。（本次更新需要手动升级agent安装脚本后才生效）
+- V2.7.11 优化客户端探针脚本，减少服务器流量消耗，添加GitHub自动同步功能，实现Workers自动升级。增加了Workers/Agent版本升级提示。增加OS图标显示（本次更新需要手动升级agent安装脚本）
 - V2.7.10 加入了 CSP 内容安全策略。重构前端 admin 模块，新增 iOS Scriptable 小组件，新增 tags、note 字段
 - V2.7.9 修改数据库结构，减少一半D1写入消耗，理论上支持60+服务器监控，在保证安全的基础上，增加服务器参数下发功能。
 - V2.7.8 修复月度任务导致数据表索引丢失的严重 Bug
@@ -227,42 +230,6 @@ https://你的项目名.你的子域.workers.dev/#/admin
 3. 点击 **+ 添加服务器**
 4. 点击新服务器旁的 **📋** 按钮复制安装命令
 
-### Linux系统
-
-Ubuntu / Debian / CentOS / RHEL / Fedora / Rocky / AlmaLinux 系统
-
-```bash
-curl -sL https://你的项目.你的子域.workers.dev/install.sh | bash -s install -id=<SERVER_ID> -secret=<SECRET> -url=<WORKER_URL> [-collect_interval=0] [-interval=60] [-ping=http] [-ct=xxx] [-cu=xxx] [-cm=xxx] [-bd=xxx] [-reset_day=1] [-rx_correction=N] [-tx_correction=N]
-```
-
-Alpine 系统
-
-```bash
-curl -sL https://你的项目.你的子域.workers.dev/install-alpine.sh | sh -s install -id=<SERVER_ID> -secret=<SECRET> -url=<WORKER_URL> [-collect_interval=0] [-interval=60] [-ping=http] [-ct=xxx] [-cu=xxx] [-cm=xxx] [-bd=xxx] [-reset_day=1] [-rx_correction=N] [-tx_correction=N]
-```
-
-OpenWrt / LEDE / ImmortalWrt 系统
-
-```bash
-curl -sL https://你的项目.你的子域.workers.dev/install-openwrt.sh | sh -s install -id=<SERVER_ID> -secret=<SECRET> -url=<WORKER_URL> [-collect_interval=0] [-interval=60] [-ping=http] [-ct=xxx] [-cu=xxx] [-cm=xxx] [-bd=xxx] [-reset_day=1] [-rx_correction=N] [-tx_correction=N]
-```
-
-### macOS 系统安装
-
-支持 macOS Intel 和 Apple Silicon（M1/M2/M3/M4），使用 `sudo` 执行安装脚本：
-
-```bash
-curl -sL https://你的项目.你的子域.workers.dev/install-mac.sh | sudo bash -s install -id=<SERVER_ID> -secret=<SECRET> -url=<WORKER_URL> [-collect_interval=0] [-interval=60] [-ping=http] [-ct=xxx] [-cu=xxx] [-cm=xxx] [-bd=xxx] [-reset_day=1] [-rx_correction=N] [-tx_correction=N]
-```
-
-### Windows 系统安装
-
-```powershell
-irm https://你的项目.你的子域.workers.dev/cf-server-monitor.ps1 -OutFile cf-server-monitor.ps1; powershell -ExecutionPolicy Bypass -File .\cf-server-monitor.ps1 install -Id <SERVER_ID> -Secret <SECRET> -Url <WORKER_URL> [-ReportInterval=60] [-PingType=tcp] [-CtNode=xxx] [-CuNode=xxx] [-CmNode=xxx] [-BdNode=xxx] [-ResetDay=1]
-```
-
-***
-
 ### 参数说明
 
 | 参数                  | 说明                           | 默认值    |
@@ -272,11 +239,10 @@ irm https://你的项目.你的子域.workers.dev/cf-server-monitor.ps1 -OutFile
 | `-url`              | Worker 上报地址（必填）              | -      |
 | `-collect_interval` | 数据采集间隔（秒），`0` 表示不额外采集并使用单条上报 | `0`    |
 | `-interval`         | 数据上报间隔（秒）                    | `60`   |
-| `-ping`             | Ping 检测类型（`http`/`tcp`）      | `http` |
-| `-ct`               | 自定义CT测试节点                    | 默认节点   |
-| `-cu`               | 自定义CU测试节点                    | 默认节点   |
-| `-cm`               | 自定义CM测试节点                    | 默认节点   |
-| `-bd`               | 自定义BD测试节点                    | 默认节点   |
+| `-ct`               | 自定义CT测试节点，支持 `host[:port]` | 默认节点   |
+| `-cu`               | 自定义CU测试节点，支持 `host[:port]` | 默认节点   |
+| `-cm`               | 自定义CM测试节点，支持 `host[:port]` | 默认节点   |
+| `-bd`               | 自定义BD测试节点，支持 `host[:port]` | 默认节点   |
 | `-reset_day`        | 流量重置日（1-31）                  | `1`    |
 | `-rx_correction`    | 下行流量校正（GB，直接设置当月下行数据）        | -      |
 | `-tx_correction`    | 上行流量校正（GB，直接设置当月上行数据）        | -      |
@@ -290,21 +256,37 @@ irm https://你的项目.你的子域.workers.dev/cf-server-monitor.ps1 -OutFile
 
 根据您使用的安装方式，选择对应的升级方法：
 
-### 方式一：Cloudflare Workers 连接 GitHub 仓库
+### 方式一/方式二：Fork 后通过 GitHub 同步（推荐）
 
-由于 Cloudflare Workers 直接连接 GitHub 仓库，升级非常简单：
+无论你使用 Cloudflare Workers 连接 GitHub 仓库，还是使用 GitHub Action 自动部署，升级方式相同：同步上游仓库即可。
 
-1. 进入您 Fork 的 GitHub 仓库页面
+#### 自动同步（推荐）
+
+建议启用自动同步功能，系统会每天自动同步上游仓库的最新代码：
+
+1. 进入你 Fork 的 GitHub 仓库页面
+2. 点击 **Actions** 标签
+3. 首次使用时，点击 **"I understand my workflows, go ahead and enable them"** 启用 Actions
+4. 找到 **Upstream Sync** 工作流，点击进入
+5. 点击 **Run workflow** 手动触发一次，确认同步正常工作
+
+启用后，系统每天 UTC 0:00（北京时间 8:00）会自动检测上游仓库是否有新提交，有则自动合并到你的 `main` 分支。
+
+> **注意**：如果同步失败，提示"由于上游仓库的 workflow 文件变更，导致 GitHub 自动暂停了本次自动更新"，请前往仓库页面点击 **Sync Fork** → **Update branch** 手动执行一次同步，然后再次启用 Actions。
+
+#### 手动同步
+
+如果需要立即同步，可以手动操作：
+
+1. 进入你 Fork 的 GitHub 仓库页面
 2. 点击 **Sync fork** → **Update branch** 同步上游更新
-3. Cloudflare Workers 会自动检测到代码变更并重新部署
 
-### 方式二：GitHub Action 自动部署
+或者在 **Actions** 标签页中点击 **Upstream Sync** → **Run workflow** 手动触发。
 
-与方式一类似，同步上游仓库后推送即可：
+**部署触发方式**：
 
-1. 同步上游仓库（参考方式一的步骤）
-2. 推送代码后 GitHub Actions 会自动触发部署
-3. 在仓库的 **Actions** 标签页查看部署进度
+- **Cloudflare Workers 连接 GitHub 仓库**：同步后 Cloudflare 会自动检测到代码变更并重新部署
+- **GitHub Action 自动部署**：同步后 GitHub Actions 会自动触发部署，可在 **Actions** 标签页查看进度
 
 ### 方式三：一键部署
 
@@ -315,7 +297,7 @@ irm https://你的项目.你的子域.workers.dev/cf-server-monitor.ps1 -OutFile
 3. 在 build command 中填入 `npm run build:frontend`
 4. 点击部署
 
-> **注意**：一键部署方式不方便同步更新，建议迁移到方式一或方式二。
+> **注意**：一键部署方式不方便同步更新，建议迁移到方式一。
 
 </details>
 
@@ -524,7 +506,8 @@ Content Security Policy (CSP) 是一种安全层，用于检测和缓解某些�
 
 访问 `https://你的项目.你的子域.workers.dev/` 查看：
 
-- **卡片视图**：服务器状态概览（含实时网速和本月流量）
+- **条形图视图**：服务器状态概览（含实时网速和本月流量）
+- **环形图视图**：服务器资源占用环形展示
 - **表格视图**：详细数据列表
 - **地图视图**：全球服务器分布
 - **过滤器**：按国家筛选服务器
@@ -696,9 +679,11 @@ CF-Server-Monitor/
 │       ├── main.js             # 前端入口
 │       ├── components/         # Vue 组件
 │       │   ├── Footer.vue
-│       │   ├── ServerCard.vue
+│       │   ├── ServerBarCard.vue
+│       │   ├── ServerRingCard.vue
 │       │   └── TerminalHeader.vue
 │       ├── composables/        # 通用组合式函数
+│       │   ├── useServerCardData.js
 │       │   ├── usePasswordVisibility.js
 │       │   └── useTheme.js
 │       ├── router/
@@ -754,7 +739,8 @@ CF-Server-Monitor/
 └── .github/
     └── workflows/
         ├── deploy.yml             # GitHub Actions 自动部署到 Workers
-        └── deploy-github-page.yml # GitHub Pages 自动部署
+        ├── deploy-github-page.yml # GitHub Pages 自动部署
+        └── sync.yml               # 上游仓库自动同步
 ```
 
 </details>
@@ -815,7 +801,9 @@ Cloudflare D1 免费版提供 5GB 存储和 5M 读取行/日、100K 写入行/�
 <details>
 <summary>界面预览</summary>
 
-![image](https://github.com/user-attachments/assets/0527f847-4631-47ad-8315-3f80ebba42d2)
+### 深色风格
+![image](https://github.com/user-attachments/assets/4e6a5db4-65d3-4d40-91b9-9e46ee140d0d)
+![image](https://github.com/user-attachments/assets/c10a1376-3d4c-4a58-8d3b-dc904b30f174)
 ![image](https://github.com/user-attachments/assets/a9c1aefd-42f7-4805-aa42-bbe9e58aed59)
 ![image](https://github.com/user-attachments/assets/527bcf04-3124-4f1c-b052-451bccae961d)
 ![image](https://github.com/user-attachments/assets/ac6f6fbb-b9fb-45cd-93e5-ca08bbad9ecb)
@@ -823,8 +811,9 @@ Cloudflare D1 免费版提供 5GB 存储和 5M 读取行/日、100K 写入行/�
 ![image](https://github.com/user-attachments/assets/ba0d3605-ef64-4be1-884b-9506f20277a8)
 ![image](https://github.com/user-attachments/assets/197767cc-028b-4ec1-b41f-5cadc2b25629)
 
-浅色风格
-![image](https://github.com/user-attachments/assets/3a7f3204-0a68-4f59-9822-f7f1b5479822)
+### 浅色风格
+![image](https://github.com/user-attachments/assets/8d310095-2b93-40f3-b762-323fbe6595f6)
+![image](https://github.com/user-attachments/assets/bfa48a70-5379-495f-8599-fc9bf49c4801)
 ![image](https://github.com/user-attachments/assets/e100d984-3165-4f38-948a-625249b4600a)
 ![image](https://github.com/user-attachments/assets/7d266ff3-0db7-477b-8029-c76e42298002)
 

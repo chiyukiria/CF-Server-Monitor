@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS servers (
   reset_day INTEGER DEFAULT 1,
   collect_interval INTEGER DEFAULT 0,
   report_interval INTEGER DEFAULT 60,
-  ping_mode TEXT DEFAULT 'http',
+  auto_update TEXT DEFAULT '0',
   is_hidden TEXT DEFAULT '0',
   sort_order INTEGER DEFAULT 0
 );
@@ -179,7 +179,9 @@ const appearanceOptions = {
   site_title: 'Test',
   custom_bg: 'https://cdn.nodeimage.com/i/fux0OSoFzVZQsn9uZmSDbIpKzZw2r8GW.webp',
   custom_head: '<meta content="test">',
-  custom_script: 'console.log("Hello, World!");'
+  custom_script: 'console.log("Hello, World!");',
+  display_mode: 'bar',
+  theme_options: { a: 1, b: 2 }
 };
 
 const siteOptions = {
